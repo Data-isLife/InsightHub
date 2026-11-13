@@ -1,8 +1,9 @@
 
 const stats = [
-  { label: "Total datasets", value: "0", description: "No datasets uploaded" },
-  { label: "Rows analysed", value: "0", description: "Waiting for data" },
-  { label: "Reports generated", value: "0", description: "No reports yet" },
+  { label: "Total datasets", value: "12", description: "No datasets uploaded" },
+  { label: "Rows analysed", value: "45,000", description: "Waiting for data" },
+  { label: "Reports generated", value: "8", description: "No reports yet" },
+  { label: "Storage used", value: "250 MB", description: "Prototype Data"}
 ];
 
 export default function Home() {
@@ -16,6 +17,7 @@ export default function Home() {
           <a href="#">My datasets</a>
           <a href="#">Analysis</a>
           <a href="#">Reports</a>
+          <a href="#">Settings</a>
         </nav>
         <div className="sidebar-footer">
           Data intelligence, simplified.
