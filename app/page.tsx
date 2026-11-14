@@ -1,12 +1,34 @@
+"use client";
 
-const stats = [
-  { label: "Total datasets", value: "12", description: "No datasets uploaded" },
-  { label: "Rows analysed", value: "45,000", description: "Waiting for data" },
-  { label: "Reports generated", value: "8", description: "No reports yet" },
-  { label: "Storage used", value: "250 MB", description: "Prototype Data"}
+import { useState } from "react";
+
+type Stat = {
+  label: string;
+  value: string;
+  description: string;
+};
+
+const stats: Stat[] = [
+  { label: "Total datasets", 
+    value: "12", 
+    description: "Prototype records" 
+  },
+  { label: "Rows analysed", 
+    value: "45,000", 
+    description: "Sample data" 
+  },
+  { label: "Reports generated", 
+    value: "8", 
+    description: "Prototype reports" 
+  },
+  { label: "Storage used", 
+    value: "250 MB", 
+    description: "Prototype Data"
+  }
 ];
 
 export default function Home() {
+  const [count, setCount] = useState<number>(0);
   return (
     <main className="dashboard">
       <aside className="sidebar">
@@ -30,7 +52,7 @@ export default function Home() {
           <span>My Workspace</span>
         </header>
 
-        <div className="content">
+        <div className="content">          
           <div className="welcome">
             <div>
               <h1>Welcome to InsightHub</h1>
@@ -48,6 +70,37 @@ export default function Home() {
               </article>
             ))}
           </div>
+
+          <section className="recent">
+            <h2>React Interaction Lab</h2>
+
+            <p>Testing my understanding of React state.</p>
+
+            <h1>{count}</h1>
+
+            <div className="counter-controls">
+              <button
+                type="button"
+                onClick={() => setCount((current) => current - 1)}
+              >
+                Decrease
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCount((current) => current + 1)}
+              >
+                Increase
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCount(0)}
+              >
+                Reset
+              </button>
+            </div>
+          </section>
 
           <section className="upload-card">
             <h2>Start analysing your data</h2>

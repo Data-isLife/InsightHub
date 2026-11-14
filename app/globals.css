@@ -110,9 +110,16 @@ button:hover {
   background: #1d4ed8;
 }
 
+.counter-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 15px;
+}
+
 .stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 20px;
 }
 
@@ -151,41 +158,85 @@ button:hover {
   color: #748197;
 }
 
+
 @media (max-width: 750px) {
+  /* Stack the dashboard vertically */
+  .dashboard {
+    flex-direction: column;
+  }
+
+  /* Make the sidebar a full-width top navigation */
   .sidebar {
-    width: 75px;
-    padding: 15px 8px;
+    width: 100%;
+    padding: 15px 16px;
   }
 
   .sidebar h2 {
-    font-size: 12px;
-    margin-bottom: 30px;
+    font-size: 20px;
+    margin: 0 0 12px;
+  }
+
+  .menu-title {
+    display: none;
+  }
+
+  .sidebar nav {
+    display: flex;
+    gap: 8px;
+    margin-top: 0;
+    overflow-x: auto;
   }
 
   .sidebar nav a {
-    font-size: 11px;
-    padding: 8px 3px;
+    font-size: 12px;
+    padding: 9px 12px;
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
   .sidebar-footer {
     display: none;
   }
 
-  .content {
-    padding: 20px 12px;
+  /* Main dashboard content */
+  .main-content {
+    width: 100%;
   }
 
+  .content {
+    width: 100%;
+    padding: 20px 16px;
+  }
+
+  /* Stack statistics cards */
   .stats {
     grid-template-columns: 1fr;
+    gap: 15px;
   }
 
+  /* Stack welcome heading and button */
   .welcome {
     align-items: flex-start;
     flex-direction: column;
+    gap: 15px;
   }
 
+  /* Adjust topbar */
   .topbar {
-    padding: 15px;
+    padding: 15px 16px;
     font-size: 12px;
+    gap: 10px;
+  }
+
+  /* Keep upload section within the screen */
+  .upload-card,
+  .recent,
+  .stat-card {
+    width: 100%;
+    padding: 20px;
+  }
+
+  .upload-area {
+    padding: 25px 12px;
   }
 }
