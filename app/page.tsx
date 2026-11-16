@@ -34,6 +34,14 @@ const stats: Stat[] = [
 
 export default function Home() {
   const [count, setCount] = useState<number>(0);
+  const statusMessage =
+              count === 0
+              ? "No datasets uploaded"
+              : count < 5
+              ? "Getting started"
+              : count < 10
+              ? "Growing Workspace"
+              : "Active Workspace";
   return (
     <main className="dashboard">
       <aside className="sidebar">
@@ -81,18 +89,10 @@ export default function Home() {
 
             <p>Track your dataset activity with the buttons below.</p>
 
-            <h1>{count}</h1>
-            <p>Counter value: {count}</p>
-
+            <h2 className="counter-value">{count}</h2>
+            
             <p>
-              {count === 0
-              ? "No dataset uploaded"
-              : count <= 5
-              ? "Getting started"
-              : count <= 10
-              ? "Growing workspace"
-              : "Active workspace"
-              }
+              {statusMessage}
             </p>
 
             <div className="counter-controls">
