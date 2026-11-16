@@ -24,6 +24,11 @@ const stats: Stat[] = [
   { label: "Storage used", 
     value: "250 MB", 
     description: "Prototype Data"
+  },
+  {
+  label: "Active projects",
+  value: "4",
+  description: "Projects in progress",
   }
 ];
 
@@ -81,7 +86,7 @@ export default function Home() {
             <div className="counter-controls">
               <button
                 type="button"
-                onClick={() => setCount((current) => current - 1)}
+                onClick={() => setCount((current) => Math.max(0,current - 1))}
               >
                 Decrease
               </button>
