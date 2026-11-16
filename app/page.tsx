@@ -77,11 +77,23 @@ export default function Home() {
           </div>
 
           <section className="recent">
-            <h2>React Interaction Lab</h2>
+            <h2>Dataset Activity Tracker</h2>
 
-            <p>Testing my understanding of React state.</p>
+            <p>Track your dataset activity with the buttons below.</p>
 
             <h1>{count}</h1>
+            <p>Counter value: {count}</p>
+
+            <p>
+              {count === 0
+              ? "No dataset uploaded"
+              : count <= 5
+              ? "Getting started"
+              : count <= 10
+              ? "Growing workspace"
+              : "Active workspace"
+              }
+            </p>
 
             <div className="counter-controls">
               <button
