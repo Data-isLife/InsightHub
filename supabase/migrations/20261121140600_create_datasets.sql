@@ -72,7 +72,7 @@ create table public.dataset_shares (
 
     role text not null default 'viewer'
         check (role in ('viewer', 'editor')),
-
+        
     created_by uuid not null default auth.uid()
         references auth.users(id)
         on delete cascade,
