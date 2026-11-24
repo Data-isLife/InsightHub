@@ -120,8 +120,45 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    void loadDatasets();
-  }, [loadDatasets]);
+    let active = true;
+
+    async function loadInitialDatasets() {
+      try {
+        const response = await fetch("/api/datasets", {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || "Unable to load datasets.");
+        }
+
+        if (active) {
+          setDatasets(result.datasets ?? []);
+        }
+      } catch (error) {
+        if (active) {
+          setLoadError(
+            error instanceof Error
+              ? error.message
+              : "Unable to load your datasets."
+          );
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadInitialDatasets();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleFileSelection = (file: File | null) => {
     if (!file) return;
@@ -526,9 +563,8 @@ export default function Dashboard() {
           <section className="ih-library-section" id="datasets">
             <div className="ih-library-heading">
               <div>
-                <p className="ih-eyebrow">YOUR WORKSPACE</p>
                 <h2>Your datasets</h2>
-                <p>Manage the files you've uploaded to InsightHub.</p>
+                <p>Manage the files you’ve uploaded to InsightHub.</p>
               </div>
 
               <button
@@ -570,7 +606,7 @@ export default function Dashboard() {
 
             {loadError && (
               <div className="ih-empty-state">
-                <strong>We couldn't load your datasets.</strong>
+                <strong>We couldn’t load your datasets.</strong>
                 <p>{loadError}</p>
                 <button
                   type="button"

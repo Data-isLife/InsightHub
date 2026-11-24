@@ -1080,3 +1080,204 @@ a {
     padding: 27px 21px;
   }
 }
+
+/* =========================================
+   INSIGHTHUB NEUTRAL DESIGN OVERRIDES
+========================================= */
+
+:root {
+  color-scheme: light;
+  --background: #f7f7f7;
+  --surface: #ffffff;
+  --surface-secondary: #f1f1f1;
+  --foreground: #171717;
+  --muted: #737373;
+  --border: #e5e5e5;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-soft: #eff6ff;
+  --sidebar: #ffffff;
+  --sidebar-text: #404040;
+  --sidebar-muted: #737373;
+  --success: #15803d;
+  --success-soft: #f0fdf4;
+  --danger: #b91c1c;
+  --danger-soft: #fef2f2;
+  --shadow: 0 4px 18px rgba(0, 0, 0, 0.035);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #101010;
+  --surface: #181818;
+  --surface-secondary: #222222;
+  --foreground: #f5f5f5;
+  --muted: #a3a3a3;
+  --border: #303030;
+  --primary: #60a5fa;
+  --primary-hover: #93c5fd;
+  --primary-soft: #172b43;
+  --sidebar: #181818;
+  --sidebar-text: #e5e5e5;
+  --sidebar-muted: #a3a3a3;
+  --success: #4ade80;
+  --success-soft: #14291c;
+  --danger: #fca5a5;
+  --danger-soft: #351c1c;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    color-scheme: dark;
+    --background: #101010;
+    --surface: #181818;
+    --surface-secondary: #222222;
+    --foreground: #f5f5f5;
+    --muted: #a3a3a3;
+    --border: #303030;
+    --primary: #60a5fa;
+    --primary-hover: #93c5fd;
+    --primary-soft: #172b43;
+    --sidebar: #181818;
+    --sidebar-text: #e5e5e5;
+    --sidebar-muted: #a3a3a3;
+    --success: #4ade80;
+    --success-soft: #14291c;
+    --danger: #fca5a5;
+    --danger-soft: #351c1c;
+    --shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  }
+}
+
+/* Neutral sidebar */
+.ih-sidebar {
+  background: var(--sidebar);
+  color: var(--foreground);
+  border-right: 1px solid var(--border);
+}
+
+.ih-brand {
+  color: var(--foreground);
+}
+
+.ih-brand > span:last-child > span {
+  color: var(--primary);
+}
+
+.ih-brand-mark {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.ih-sidebar-label {
+  color: var(--sidebar-muted);
+}
+
+.ih-nav-link {
+  color: var(--sidebar-text);
+}
+
+.ih-nav-link:hover,
+.ih-nav-link.active {
+  background: var(--surface-secondary);
+  color: var(--foreground);
+  box-shadow: inset 3px 0 var(--primary);
+}
+
+.ih-nav-icon {
+  color: var(--muted);
+}
+
+.ih-nav-link.active .ih-nav-icon {
+  color: var(--primary);
+}
+
+.ih-nav-link.disabled {
+  color: var(--muted);
+}
+
+.ih-sidebar-note {
+  background: var(--surface-secondary);
+  border-color: var(--border);
+  color: var(--foreground);
+}
+
+.ih-sidebar-note p {
+  color: var(--muted);
+}
+
+.ih-sidebar-note-icon {
+  color: var(--primary);
+}
+
+.ih-signout {
+  color: var(--sidebar-text);
+}
+
+.ih-signout:hover {
+  background: var(--surface-secondary);
+  color: var(--foreground);
+}
+
+/* Neutral statistic and file icons */
+.ih-stat-icon,
+.ih-stat-icon.blue,
+.ih-stat-icon.violet,
+.ih-stat-icon.green,
+.ih-stat-icon.orange {
+  background: var(--surface-secondary);
+  color: var(--muted);
+}
+
+.ih-file-icon.csv,
+.ih-file-icon.xlsx {
+  background: var(--surface-secondary);
+  color: var(--foreground);
+}
+
+/* Selective blue accents */
+.ih-dropzone.dragging {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.ih-upload-icon {
+  background: var(--surface-secondary);
+  color: var(--primary);
+}
+
+.ih-workspace-avatar {
+  background: var(--surface-secondary);
+  color: var(--foreground);
+}
+
+/* Accessible keyboard focus */
+.ih-nav-link:focus-visible,
+.ih-theme-button:focus-visible,
+.ih-primary-button:focus-visible,
+.ih-secondary-button:focus-visible,
+.ih-signout:focus-visible,
+.ih-refresh-button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+/* Smooth theme transitions */
+body,
+.ih-sidebar,
+.ih-topbar,
+.ih-stat-card,
+.ih-upload-section,
+.ih-library-section,
+.ih-theme-button,
+.ih-field input,
+.ih-search,
+.ih-sort,
+.ih-dropzone {
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease;
+}
+
