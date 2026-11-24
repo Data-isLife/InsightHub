@@ -91,6 +91,10 @@ export default function Dashboard() {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("newest");
 
+  const [recoveringStatistics, setRecoveringStatistics] = useState(false);
+  const [recoveryMessage, setRecoveryMessage] = useState("");
+  const [recoveryErrors, setRecoveryErrors] = useState<string[]>([]);
+
   const loadDatasets = useCallback(async () => {
     setLoading(true);
     setLoadError("");
@@ -264,6 +268,96 @@ export default function Dashboard() {
       );
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleRecoverStatistics = async () => {
+    const incompleteDatasets = datasets.filter(
+      (dataset) =>
+        dataset.row_count === null || dataset.column_count === null
+    );
+
+    if (incompleteDatasets.length === 0) {
+      setRecoveryMessage("All dataset statistics are already available.");
+      return;
+    }
+
+    setRecoveringStatistics(true);
+    setRecoveryMessage("Preparing dataset statistics recovery...");
+    setRecoveryErrors([]);
+
+    let recovered = 0;
+    let failed = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    const batchSize = 3;
+    const totalBatches = Math.ceil(incompleteDatasets.length / batchSize);
+
+    try {
+      for (
+        let index = 0;
+        index < incompleteDatasets.length;
+        index += batchSize
+      ) {
+        const batch = incompleteDatasets.slice(index, index + batchSize);
+        const batchNumber = Math.floor(index / batchSize) + 1;
+
+        setRecoveryMessage(
+          `Recovering batch ${batchNumber} of ${totalBatches}...`
+        );
+
+        try {
+          const response = await fetch(
+            "/api/datasets/recover-statistics",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                datasetIds: batch.map((dataset) => dataset.id),
+              }),
+            }
+          );
+
+          const result = await response.json();
+
+          if (!response.ok || !result.success) {
+            throw new Error(
+              result.message || "The recovery request failed."
+            );
+          }
+
+          recovered += result.recovered ?? 0;
+          failed += result.failed ?? 0;
+          skipped += result.skipped ?? 0;
+
+          for (const item of result.results ?? []) {
+            if (item.status === "failed") {
+              errors.push(
+                `${item.name}: ${item.message || "Recovery failed."}`
+              );
+            }
+          }
+        } catch (error) {
+          failed += batch.length;
+          errors.push(
+            error instanceof Error
+              ? error.message
+              : `Batch ${batchNumber} could not be processed.`
+          );
+        }
+      }
+
+      await loadDatasets();
+
+      setRecoveryMessage(
+        `Recovery finished: ${recovered} recovered, ${failed} failed, ${skipped} skipped.`
+      );
+      setRecoveryErrors(errors);
+    } finally {
+      setRecoveringStatistics(false);
     }
   };
 
@@ -567,15 +661,48 @@ export default function Dashboard() {
                 <p>Manage the files you’ve uploaded to InsightHub.</p>
               </div>
 
-              <button
-                type="button"
-                className="ih-refresh-button"
-                onClick={() => void loadDatasets()}
-                disabled={loading}
-              >
-                ↻ Refresh
-              </button>
+              <div className="ih-library-actions">
+                {datasets.some(
+                  (dataset) =>
+                    dataset.row_count === null ||
+                    dataset.column_count === null
+                ) && (
+                  <button
+                    type="button"
+                    className="ih-secondary-button"
+                    onClick={() => void handleRecoverStatistics()}
+                    disabled={recoveringStatistics || loading}
+                  >
+                    {recoveringStatistics
+                      ? "Recovering..."
+                      : "Recover statistics"}
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className="ih-refresh-button"
+                  onClick={() => void loadDatasets()}
+                  disabled={loading || recoveringStatistics}
+                >
+                  Refresh
+                </button>
+              </div>
             </div>
+
+            {(recoveryMessage || recoveryErrors.length > 0) && (
+              <div className="ih-recovery-status" aria-live="polite">
+                {recoveryMessage && <p>{recoveryMessage}</p>}
+
+                {recoveryErrors.length > 0 && (
+                  <ul>
+                    {recoveryErrors.map((error, index) => (
+                      <li key={`${index}-${error}`}>{error}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
 
             <div className="ih-library-toolbar">
               <div className="ih-search">
@@ -648,6 +775,7 @@ export default function Dashboard() {
                       <th>FORMAT</th>
                       <th>SIZE</th>
                       <th>ROWS</th>
+                      <th>COLUMNS</th>
                       <th>DATE ADDED</th>
                     </tr>
                   </thead>
@@ -674,10 +802,15 @@ export default function Dashboard() {
                           </span>
                         </td>
                         <td>{formatBytes(Number(dataset.file_size))}</td>
-                        <td>
-                          {dataset.row_count === null
+                                                <td>
+                          {dataset.row_count == null
                             ? "—"
                             : dataset.row_count.toLocaleString()}
+                        </td>
+                        <td>
+                          {dataset.column_count == null
+                            ? "—"
+                            : dataset.column_count.toLocaleString()}
                         </td>
                         <td>{formatDate(dataset.created_at)}</td>
                       </tr>

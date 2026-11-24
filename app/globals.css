@@ -1281,3 +1281,47 @@ body,
     border-color 0.18s ease;
 }
 
+
+/* Dataset statistics recovery */
+.ih-library-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.ih-recovery-status {
+  margin-top: 15px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-secondary);
+  color: var(--foreground);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.ih-recovery-status p {
+  margin: 0;
+}
+
+.ih-recovery-status ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  color: var(--muted);
+}
+
+.ih-recovery-status li + li {
+  margin-top: 4px;
+}
+
+.ih-library-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.ih-library-actions button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}

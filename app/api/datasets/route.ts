@@ -44,7 +44,7 @@ export async function GET() {
     const { data: datasets, error } = await supabase
       .from("datasets")
       .select(
-        "id, name, description, file_name, file_type, file_size, created_at, updated_at"
+        "id, name, description, file_name, file_type, file_size, row_count, column_count, created_at, updated_at"
       )
       .order("created_at", { ascending: false });
 
@@ -214,10 +214,11 @@ export async function POST(request: Request) {
 
     uploadedStoragePath = storagePath;
 
-    // 6. Insert metadata. Database defaults and RLS handle ownership.
-    const { data: dataset, error: databaseError } = await supabase
+    // 6. Insert metadata without requesting a returned row.
+    const { error: databaseError } = await supabase
       .from("datasets")
       .insert({
+        user_id: user.id,
         name: validation.data.name,
         description,
         file_name: file.name,
@@ -226,16 +227,11 @@ export async function POST(request: Request) {
         row_count: processed.rowCount,
         column_count: processed.columnCount,
         storage_path: storagePath,
-      })
-      .select(
-        "id, name, description, file_name, file_type, file_size, row_count, column_count, created_at, updated_at"
-      )
-      .single();
+      });
 
     if (databaseError) {
-      console.error("Dataset database insertion error:", databaseError);
+      console.error("Dataset INSERT-only error:", databaseError);
 
-      // 7. Compensating cleanup if metadata insertion fails.
       const { error: cleanupError } = await supabase.storage
         .from(STORAGE_BUCKET)
         .remove([storagePath]);
@@ -255,6 +251,48 @@ export async function POST(request: Request) {
       );
     }
 
+
+
+    // 7. Retrieve the inserted record separately.
+    const { data: dataset, error: selectError } = await supabase
+      .from("datasets")
+      .select(
+        "id, name, description, file_name, file_type, file_size, row_count, column_count, created_at, updated_at"
+      )
+      .eq("storage_path", storagePath)
+      .single();
+
+    if (selectError) {
+      console.error("Dataset SELECT-only diagnostic:", selectError);
+
+      // Compensate for a failed retrieval.
+      const { error: metadataCleanupError } = await supabase
+        .from("datasets")
+        .delete()
+        .eq("storage_path", storagePath);
+
+      if (metadataCleanupError) {
+        console.error("Dataset metadata cleanup failed:", metadataCleanupError);
+      }
+
+      const { error: storageCleanupError } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .remove([storagePath]);
+
+      if (storageCleanupError) {
+        console.error("Dataset storage cleanup failed:", storageCleanupError);
+      }
+
+      uploadedStoragePath = null;
+
+      return Response.json(
+        {
+          success: false,
+          message: "Dataset metadata could not be retrieved.",
+        },
+        { status: 500 }
+      );
+    }
     uploadedStoragePath = null;
 
     return Response.json(
