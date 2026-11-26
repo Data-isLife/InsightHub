@@ -122,6 +122,8 @@ export default function Dashboard() {
   const [previewError, setPreviewError] = useState("");
   const [previewData, setPreviewData] =
     useState<DatasetPreviewData | null>(null);
+  const [selectedPreviewDataset, setSelectedPreviewDataset] =
+    useState<Dataset | null>(null);
 
   const loadDatasets = useCallback(async () => {
     setLoading(true);
@@ -390,6 +392,7 @@ export default function Dashboard() {
   };
 
   const handlePreviewDataset = async (dataset: Dataset) => {
+    setSelectedPreviewDataset(dataset);
     setPreviewOpen(true);
     setPreviewLoading(true);
     setPreviewError("");
@@ -958,9 +961,7 @@ export default function Dashboard() {
                       type="button"
                       className="ih-secondary-button"
                       onClick={() => {
-                        const dataset = datasets.find(
-                          (item) => item.id === previewData?.datasetId
-                        );
+                        const dataset = selectedPreviewDataset;
 
                         if (dataset) {
                           void handlePreviewDataset(dataset);
