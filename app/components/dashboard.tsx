@@ -28,6 +28,27 @@ type Dataset = {
 
 type SortOption = "newest" | "oldest" | "name" | "largest";
 
+type DatasetPreviewData = {
+  datasetId: string;
+  name: string;
+  fileName: string;
+  fileType: "CSV" | "XLSX";
+  rowCount: number | null;
+  columnCount: number;
+  columns: string[];
+  previewRows: Record<string, string | number | boolean | null>[];
+  worksheetName?: string;
+};
+
+type DatasetPreviewResponse = {
+  success: boolean;
+  preview?: DatasetPreviewData;
+  error?: {
+    code?: string;
+    message?: string;
+  };
+};
+
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 function formatBytes(bytes: number): string {
@@ -94,6 +115,13 @@ export default function Dashboard() {
   const [recoveringStatistics, setRecoveringStatistics] = useState(false);
   const [recoveryMessage, setRecoveryMessage] = useState("");
   const [recoveryErrors, setRecoveryErrors] = useState<string[]>([]);
+
+  // Dataset preview state
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState("");
+  const [previewData, setPreviewData] =
+    useState<DatasetPreviewData | null>(null);
 
   const loadDatasets = useCallback(async () => {
     setLoading(true);
@@ -359,6 +387,48 @@ export default function Dashboard() {
     } finally {
       setRecoveringStatistics(false);
     }
+  };
+
+  const handlePreviewDataset = async (dataset: Dataset) => {
+    setPreviewOpen(true);
+    setPreviewLoading(true);
+    setPreviewError("");
+    setPreviewData(null);
+
+    try {
+      const response = await fetch(
+        `/api/datasets/${encodeURIComponent(dataset.id)}/preview`,
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
+
+      const result =
+        (await response.json()) as DatasetPreviewResponse;
+
+      if (!response.ok || !result.success || !result.preview) {
+        throw new Error(
+          result.error?.message || "Unable to preview this dataset."
+        );
+      }
+
+      setPreviewData(result.preview);
+    } catch (error) {
+      setPreviewError(
+        error instanceof Error
+          ? error.message
+          : "An unexpected error occurred while loading the preview."
+      );
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const closePreview = () => {
+    setPreviewOpen(false);
+    setPreviewError("");
+    setPreviewData(null);
   };
 
   const filteredDatasets = useMemo(() => {
@@ -777,6 +847,7 @@ export default function Dashboard() {
                       <th>ROWS</th>
                       <th>COLUMNS</th>
                       <th>DATE ADDED</th>
+                      <th>ACTIONS</th>
                     </tr>
                   </thead>
 
@@ -813,6 +884,17 @@ export default function Dashboard() {
                             : dataset.column_count.toLocaleString()}
                         </td>
                         <td>{formatDate(dataset.created_at)}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="ih-preview-button"
+                            onClick={() => void handlePreviewDataset(dataset)}
+                            aria-label={`Preview ${dataset.name}`}
+                          >
+                            <span aria-hidden="true">◉</span>
+                            Preview
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -824,6 +906,186 @@ export default function Dashboard() {
               Showing {filteredDatasets.length} of {datasets.length} datasets
             </div>
           </section>
+
+          {previewOpen && (
+            <div
+              className="ih-preview-overlay"
+              onMouseDown={(event) => {
+                if (event.target === event.currentTarget) {
+                  closePreview();
+                }
+              }}
+            >
+              <section
+                className="ih-preview-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="ih-preview-title"
+              >
+                <header className="ih-preview-header">
+                  <div>
+                    <p className="ih-eyebrow">DATASET EXPLORER</p>
+                    <h2 id="ih-preview-title">
+                      {previewData?.name || "Dataset preview"}
+                    </h2>
+                    <p className="ih-preview-filename">
+                      {previewData?.fileName || "Loading dataset information..."}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="ih-preview-close"
+                    onClick={closePreview}
+                    aria-label="Close dataset preview"
+                  >
+                    ×
+                  </button>
+                </header>
+
+                {previewLoading && (
+                  <div className="ih-preview-message" role="status">
+                    <div className="ih-spinner" />
+                    <p>Preparing your dataset preview...</p>
+                  </div>
+                )}
+
+                {!previewLoading && previewError && (
+                  <div className="ih-preview-message error" role="alert">
+                    <strong>Preview unavailable</strong>
+                    <p>{previewError}</p>
+                    <button
+                      type="button"
+                      className="ih-secondary-button"
+                      onClick={() => {
+                        const dataset = datasets.find(
+                          (item) => item.id === previewData?.datasetId
+                        );
+
+                        if (dataset) {
+                          void handlePreviewDataset(dataset);
+                        }
+                      }}
+                    >
+                      Try again
+                    </button>
+                  </div>
+                )}
+
+                {!previewLoading && previewData && (
+                  <>
+                    <div className="ih-preview-stats">
+                      <article>
+                        <span>FILE FORMAT</span>
+                        <strong>{previewData.fileType}</strong>
+                      </article>
+
+                      <article>
+                        <span>TOTAL ROWS</span>
+                        <strong>
+                          {previewData.rowCount === null
+                            ? "Unavailable"
+                            : previewData.rowCount.toLocaleString()}
+                        </strong>
+                      </article>
+
+                      <article>
+                        <span>COLUMNS</span>
+                        <strong>
+                          {previewData.columnCount.toLocaleString()}
+                        </strong>
+                      </article>
+
+                      <article>
+                        <span>PREVIEW ROWS</span>
+                        <strong>
+                          {previewData.previewRows.length.toLocaleString()}
+                        </strong>
+                      </article>
+                    </div>
+
+                    {previewData.worksheetName && (
+                      <p className="ih-preview-worksheet">
+                        Worksheet: <strong>{previewData.worksheetName}</strong>
+                      </p>
+                    )}
+
+                    <div className="ih-preview-table-heading">
+                      <div>
+                        <h3>Data preview</h3>
+                        <p>
+                          Showing the first{" "}
+                          {previewData.previewRows.length} data rows.
+                        </p>
+                      </div>
+                      <span className="ih-format-badge">
+                        {previewData.fileType}
+                      </span>
+                    </div>
+
+                    {previewData.columns.length === 0 ||
+                    previewData.previewRows.length === 0 ? (
+                      <div className="ih-preview-message">
+                        <p>No preview rows are available for this dataset.</p>
+                      </div>
+                    ) : (
+                      <div className="ih-preview-table-wrapper">
+                        <table className="ih-preview-table">
+                          <thead>
+                            <tr>
+                              <th className="ih-preview-row-number">#</th>
+                              {previewData.columns.map((column, index) => (
+                                <th key={`${index}-${column}`}>
+                                  {column}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+
+                          <tbody>
+                            {previewData.previewRows.map((row, rowIndex) => (
+                              <tr key={rowIndex}>
+                                <td className="ih-preview-row-number">
+                                  {rowIndex + 1}
+                                </td>
+
+                                {previewData.columns.map((column, columnIndex) => {
+                                  const value = row[column];
+
+                                  return (
+                                    <td key={`${rowIndex}-${columnIndex}`}>
+                                      {value === null || value === undefined
+                                        ? "—"
+                                        : String(value)}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    <p className="ih-preview-note">
+                      This is a read-only preview. Your original dataset has
+                      not been modified.
+                    </p>
+                  </>
+                )}
+
+                <footer className="ih-preview-footer">
+                  <button
+                    type="button"
+                    className="ih-secondary-button"
+                    onClick={closePreview}
+                  >
+                    Close preview
+                  </button>
+                </footer>
+              </section>
+            </div>
+          )}
 
           <footer className="ih-footer">
             <span>InsightHub</span>

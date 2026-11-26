@@ -317,24 +317,21 @@ async function processXlsx(
 ): Promise<ProcessedDataset> {
   await validateXlsxSignature(file);
 
-  const workbookReader = new ExcelJS.stream.xlsx.WorkbookReader(
-    createNodeStream(file),
-    {
-      worksheets: "emit",
-      sharedStrings: "cache",
-      hyperlinks: "ignore",
-      styles: "ignore",
-    },
-  );
-
   try {
-    for await (const worksheet of workbookReader) {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(await file.arrayBuffer());
+
+    for (const worksheet of workbook.worksheets) {
       let headers: string[] | null = null;
       let rowCount = 0;
-
       const previewRows: Record<string, DatasetCellValue>[] = [];
 
-      for await (const row of worksheet) {
+      for (
+        let rowNumber = 1;
+        rowNumber <= worksheet.rowCount;
+        rowNumber++
+      ) {
+        const row = worksheet.getRow(rowNumber);
         const values = getExcelRowValues(row);
 
         if (isEmptyRecord(values)) continue;
@@ -372,7 +369,7 @@ async function processXlsx(
         }
       }
 
-      // Use the first worksheet containing a header and data.
+      // Use the first worksheet containing headers and data.
       if (headers && rowCount > 0) {
         return {
           fileName: file.name,
@@ -380,7 +377,7 @@ async function processXlsx(
           rowCount,
           columnCount: headers.length,
           columns: headers,
-          previewRows,          
+          previewRows,
         };
       }
     }
@@ -398,7 +395,6 @@ async function processXlsx(
     "No worksheet containing both headers and data was found.",
   );
 }
-
 export async function processDatasetFile(
   file: File,
 ): Promise<ProcessedDataset> {
@@ -409,4 +405,181 @@ export async function processDatasetFile(
   }
 
   return processXlsx(file);
+}
+
+export type DatasetPreview = {
+  fileName: string;
+  fileType: DatasetFileType;
+  columnCount: number;
+  columns: string[];
+  previewRows: Record<string, DatasetCellValue>[];
+  worksheetName?: string;
+};
+
+/**
+ * Reads only the requested number of data rows.
+ * This is deliberately separate from processDatasetFile(), which scans
+ * the complete file to calculate accurate total row counts.
+ */
+export async function previewDatasetFile(
+  file: File,
+  limit: number = DATASET_LIMITS.previewRows,
+): Promise<DatasetPreview> {
+  const fileType = validateFileBasics(file);
+
+  if (
+    !Number.isInteger(limit) ||
+    limit < 1 ||
+    limit > 100
+  ) {
+    throw new DatasetFileError(
+      "MALFORMED_FILE",
+      "The preview row limit must be between 1 and 100.",
+    );
+  }
+
+  if (fileType === "XLSX") {
+    await validateXlsxSignature(file);
+
+    try {
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(await file.arrayBuffer());
+
+      for (const worksheet of workbook.worksheets) {
+        let headers: string[] | null = null;
+        const previewRows: Record<string, DatasetCellValue>[] = [];
+
+        for (
+          let rowNumber = 1;
+          rowNumber <= worksheet.rowCount;
+          rowNumber++
+        ) {
+          const row = worksheet.getRow(rowNumber);
+          const values = getExcelRowValues(row);
+
+          if (isEmptyRecord(values)) continue;
+
+          if (!headers) {
+            if (values.length > DATASET_LIMITS.maxColumns) {
+              throw new DatasetFileError(
+                "TOO_MANY_COLUMNS",
+                "The Excel worksheet contains too many columns.",
+              );
+            }
+
+            headers = makeUniqueHeaders(values);
+            continue;
+          }
+
+          if (values.length > headers.length) {
+            throw new DatasetFileError(
+              "INCONSISTENT_COLUMNS",
+              "An Excel row contains more columns than the header row.",
+            );
+          }
+
+          if (previewRows.length < limit) {
+            previewRows.push(createPreviewRow(headers, values));
+          }
+
+          if (previewRows.length >= limit) break;
+        }
+
+        if (headers && previewRows.length > 0) {
+          return {
+            fileName: file.name,
+            fileType: "XLSX",
+            columnCount: headers.length,
+            columns: headers,
+            previewRows,
+          };
+        }
+      }
+    } catch (error) {
+
+    if (error instanceof DatasetFileError) throw error;
+
+    throw new DatasetFileError(
+      "MALFORMED_FILE",
+      "The Excel workbook could not be read. It may be corrupted or invalid.",
+    );
+  }
+
+    throw new DatasetFileError(
+      "EMPTY_DATASET",
+      "No worksheet containing both headers and data was found.",
+    );
+  }
+  const source = createNodeStream(file);
+
+  const parser = parse({
+    bom: true,
+    encoding: "utf8",
+    skip_empty_lines: true,
+    trim: true,
+    relax_column_count: true,
+    max_record_size: DATASET_LIMITS.maxCsvRecordSize,
+  });
+
+  source.on("error", (error) => {
+    parser.destroy(error);
+  });
+
+  source.pipe(parser);
+
+  let headers: string[] | null = null;
+  const previewRows: Record<string, DatasetCellValue>[] = [];
+
+  try {
+    for await (const rawRecord of parser) {
+      const record = rawRecord as unknown[];
+
+      if (isEmptyRecord(record)) continue;
+
+      if (!headers) {
+        if (record.length > DATASET_LIMITS.maxColumns) {
+          throw new DatasetFileError(
+            "TOO_MANY_COLUMNS",
+            "The CSV file contains too many columns.",
+          );
+        }
+
+        headers = makeUniqueHeaders(record);
+        continue;
+      }
+
+      if (record.length !== headers.length) {
+        throw new DatasetFileError(
+          "INCONSISTENT_COLUMNS",
+          `A CSV row has ${record.length} fields, but ${headers.length} were expected.`,
+        );
+      }
+
+      previewRows.push(createPreviewRow(headers, record));
+
+      if (previewRows.length >= limit) break;
+    }
+  } catch (error) {
+    if (error instanceof DatasetFileError) throw error;
+
+    throw new DatasetFileError(
+      "MALFORMED_FILE",
+      "The CSV file could not be parsed. Check its encoding, quoting and structure.",
+    );
+  }
+
+  if (!headers || headers.length === 0 || previewRows.length === 0) {
+    throw new DatasetFileError(
+      "EMPTY_DATASET",
+      "The file must contain column headers and at least one data row.",
+    );
+  }
+
+  return {
+    fileName: file.name,
+    fileType: "CSV",
+    columnCount: headers.length,
+    columns: headers,
+    previewRows,
+  };
 }

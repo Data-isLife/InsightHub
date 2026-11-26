@@ -164,3 +164,69 @@ describe("processDatasetFile", () => {
     }
   });
 });
+
+describe("previewDatasetFile", () => {
+  it("returns only the requested number of CSV rows", async () => {
+    const file = createCsvFile(
+      "Name,Age\nJames,24\nMary,22\nPeter,30\nGrace,27",
+    );
+
+    const { previewDatasetFile } = await import("./dataset-file-processor");
+    const result = await previewDatasetFile(file, 2);
+
+    expect(result.fileType).toBe("CSV");
+    expect(result.columns).toEqual(["Name", "Age"]);
+    expect(result.previewRows).toHaveLength(2);
+    expect(result.previewRows[1]).toEqual({
+      Name: "Mary",
+      Age: "22",
+    });
+    expect(result).not.toHaveProperty("rowCount");
+  });
+
+  it("returns only the requested number of XLSX rows", async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Customers");
+
+    worksheet.addRow(["Name", "Age"]);
+    worksheet.addRow(["James", 24]);
+    worksheet.addRow(["Mary", 22]);
+    worksheet.addRow(["Peter", 30]);
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const file = new File(
+      [new Uint8Array(buffer)],
+      "customers.xlsx",
+      {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      },
+    );
+
+    const { previewDatasetFile } = await import("./dataset-file-processor");
+    const result = await previewDatasetFile(file, 2);
+
+    expect(result.fileType).toBe("XLSX");
+    expect(result.previewRows).toHaveLength(2);
+    expect(result.previewRows[0]).toEqual({
+      Name: "James",
+      Age: 24,
+    });
+  });
+
+  it("rejects preview limits outside the allowed range", async () => {
+    const file = createCsvFile("Name,Age\nJames,24");
+    const { previewDatasetFile } = await import("./dataset-file-processor");
+
+    await expect(
+      previewDatasetFile(file, 0),
+    ).rejects.toMatchObject({
+      code: "MALFORMED_FILE",
+    });
+
+    await expect(
+      previewDatasetFile(file, 101),
+    ).rejects.toMatchObject({
+      code: "MALFORMED_FILE",
+    });
+  });
+});
