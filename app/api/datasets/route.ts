@@ -44,7 +44,7 @@ export async function GET() {
     const { data: datasets, error } = await supabase
       .from("datasets")
       .select(
-        "id, name, description, file_name, file_type, file_size, row_count, column_count, created_at, updated_at"
+        "id, user_id, name, description, file_name, file_type, file_size, row_count, column_count, created_at, updated_at"
       )
       .order("created_at", { ascending: false });
 
@@ -59,7 +59,10 @@ export async function GET() {
 
     return Response.json({
       success: true,
-      datasets,
+      datasets: (datasets ?? []).map(({ user_id, ...dataset }) => ({
+        ...dataset,
+        is_owner: user_id === user.id,
+      })),
     });
   } catch (error) {
     console.error("Dataset listing error:", error);
@@ -251,8 +254,6 @@ export async function POST(request: Request) {
       );
     }
 
-
-
     // 7. Retrieve the inserted record separately.
     const { data: dataset, error: selectError } = await supabase
       .from("datasets")
@@ -293,6 +294,7 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
+
     uploadedStoragePath = null;
 
     return Response.json(

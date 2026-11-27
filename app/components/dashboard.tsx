@@ -24,6 +24,7 @@ type Dataset = {
   row_count: number | null;
   column_count: number | null;
   created_at: string;
+  is_owner: boolean;
 };
 
 type SortOption = "newest" | "oldest" | "name" | "largest";
@@ -124,6 +125,16 @@ export default function Dashboard() {
     useState<DatasetPreviewData | null>(null);
   const [selectedPreviewDataset, setSelectedPreviewDataset] =
     useState<Dataset | null>(null);
+
+  // Dataset management state
+  const [managingDatasetId, setManagingDatasetId] = useState<string | null>(null);
+  const [managementError, setManagementError] = useState("");
+  const [managementMessage, setManagementMessage] = useState("");
+
+  // Rename and delete dialog state
+  const [editingDataset, setEditingDataset] = useState<Dataset | null>(null);
+  const [editDatasetName, setEditDatasetName] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<Dataset | null>(null);
 
   const loadDatasets = useCallback(async () => {
     setLoading(true);
@@ -432,6 +443,124 @@ export default function Dashboard() {
     setPreviewOpen(false);
     setPreviewError("");
     setPreviewData(null);
+  };
+
+  const openRenameDialog = (dataset: Dataset) => {
+    if (!dataset.is_owner) return;
+
+    setManagementError("");
+    setManagementMessage("");
+    setEditingDataset(dataset);
+    setEditDatasetName(dataset.name);
+  };
+
+  const openDeleteDialog = (dataset: Dataset) => {
+    if (!dataset.is_owner) return;
+
+    setManagementError("");
+    setManagementMessage("");
+    setDeleteTarget(dataset);
+  };
+
+  const handleRenameDataset = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!editingDataset || !editingDataset.is_owner) return;
+
+    const dataset = editingDataset;
+    const name = editDatasetName.trim();
+
+    if (!name) {
+      setManagementError("Enter a dataset name.");
+      return;
+    }
+
+    if (name.length > 100) {
+      setManagementError("Dataset names cannot exceed 100 characters.");
+      return;
+    }
+
+    if (name === dataset.name) {
+      setEditingDataset(null);
+      setManagementError("");
+      return;
+    }
+
+    setManagingDatasetId(dataset.id);
+    setManagementError("");
+    setManagementMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/datasets/${encodeURIComponent(dataset.id)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name }),
+        }
+      );
+
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || !result?.success || !result.dataset?.name) {
+        throw new Error(result?.error || "Unable to rename this dataset.");
+      }
+
+      setDatasets((current) =>
+        current.map((item) =>
+          item.id === dataset.id
+            ? { ...item, name: result.dataset.name }
+            : item
+        )
+      );
+      setEditingDataset(null);
+      setManagementMessage("Dataset renamed successfully.");
+    } catch (error) {
+      setManagementError(
+        error instanceof Error
+          ? error.message
+          : "An unexpected error occurred while renaming the dataset."
+      );
+    } finally {
+      setManagingDatasetId(null);
+    }
+  };
+
+  const handleDeleteDataset = async () => {
+    if (!deleteTarget || !deleteTarget.is_owner) return;
+
+    const dataset = deleteTarget;
+
+    setManagingDatasetId(dataset.id);
+    setManagementError("");
+    setManagementMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/datasets/${encodeURIComponent(dataset.id)}`,
+        { method: "DELETE" }
+      );
+
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Unable to delete this dataset.");
+      }
+
+      setDatasets((current) =>
+        current.filter((item) => item.id !== dataset.id)
+      );
+      setDeleteTarget(null);
+      setManagementMessage("Dataset deleted successfully.");
+    } catch (error) {
+      setManagementError(
+        error instanceof Error
+          ? error.message
+          : "An unexpected error occurred while deleting the dataset."
+      );
+    } finally {
+      setManagingDatasetId(null);
+    }
   };
 
   const filteredDatasets = useMemo(() => {
@@ -777,6 +906,11 @@ export default function Dashboard() {
               </div>
             )}
 
+            {managementMessage && (
+              <p className="ih-feedback success" role="status">
+                {managementMessage}
+              </p>
+            )}
             <div className="ih-library-toolbar">
               <div className="ih-search">
                 <span>⌕</span>
@@ -897,6 +1031,26 @@ export default function Dashboard() {
                             <span aria-hidden="true">◉</span>
                             Preview
                           </button>
+                          {dataset.is_owner && (
+                            <>
+                              <button
+                                type="button"
+                                className="ih-secondary-button"
+                                onClick={() => openRenameDialog(dataset)}
+                                disabled={managingDatasetId === dataset.id}
+                              >
+                                Rename
+                              </button>
+                              <button
+                                type="button"
+                                className="ih-secondary-button"
+                                onClick={() => openDeleteDialog(dataset)}
+                                disabled={managingDatasetId === dataset.id}
+                              >
+                                Delete
+                              </button>
+                            </>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -1088,6 +1242,187 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* Dataset rename dialog */}
+          {editingDataset && (
+            <div
+              className="ih-preview-overlay"
+              onMouseDown={(event) => {
+                if (
+                  event.target === event.currentTarget &&
+                  managingDatasetId !== editingDataset.id
+                ) {
+                  setEditingDataset(null);
+                  setManagementError("");
+                }
+              }}
+            >
+              <section
+                className="ih-preview-modal ih-management-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="ih-rename-title"
+              >
+                <header className="ih-preview-header">
+                  <div>
+                    <p className="ih-eyebrow">DATASET MANAGEMENT</p>
+                    <h2 id="ih-rename-title">Rename dataset</h2>
+                    <p className="ih-preview-filename">
+                      Change the name displayed in your dataset library.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="ih-preview-close"
+                    onClick={() => {
+                      setEditingDataset(null);
+                      setManagementError("");
+                    }}
+                    disabled={managingDatasetId === editingDataset.id}
+                    aria-label="Close rename dialog"
+                  >
+                    ×
+                  </button>
+                </header>
+
+                <form
+                  className="ih-management-form"
+                  onSubmit={handleRenameDataset}
+                >
+                  <label className="ih-field" htmlFor="ih-edit-dataset-name">
+                    Dataset name
+                    <input
+                      id="ih-edit-dataset-name"
+                      type="text"
+                      value={editDatasetName}
+                      onChange={(event) => setEditDatasetName(event.target.value)}
+                      maxLength={100}
+                      required
+                      autoFocus
+                      disabled={managingDatasetId === editingDataset.id}
+                    />
+                    <small>Maximum 100 characters.</small>
+                  </label>
+
+                  {managementError && (
+                    <p className="ih-feedback error" role="alert">
+                      {managementError}
+                    </p>
+                  )}
+
+                  <footer className="ih-management-actions">
+                    <button
+                      type="button"
+                      className="ih-secondary-button"
+                      onClick={() => {
+                        setEditingDataset(null);
+                        setManagementError("");
+                      }}
+                      disabled={managingDatasetId === editingDataset.id}
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="submit"
+                      className="ih-primary-button"
+                      disabled={managingDatasetId === editingDataset.id}
+                    >
+                      {managingDatasetId === editingDataset.id
+                        ? "Saving..."
+                        : "Save changes"}
+                    </button>
+                  </footer>
+                </form>
+              </section>
+            </div>
+          )}
+
+          {/* Dataset delete confirmation dialog */}
+          {deleteTarget && (
+            <div
+              className="ih-preview-overlay"
+              onMouseDown={(event) => {
+                if (
+                  event.target === event.currentTarget &&
+                  managingDatasetId !== deleteTarget.id
+                ) {
+                  setDeleteTarget(null);
+                  setManagementError("");
+                }
+              }}
+            >
+              <section
+                className="ih-preview-modal ih-management-modal"
+                role="alertdialog"
+                aria-modal="true"
+                aria-labelledby="ih-delete-title"
+                aria-describedby="ih-delete-description"
+              >
+                <header className="ih-preview-header">
+                  <div>
+                    <p className="ih-eyebrow">DATASET MANAGEMENT</p>
+                    <h2 id="ih-delete-title">Delete dataset?</h2>
+                    <p className="ih-preview-filename">
+                      This action removes the dataset from your library.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="ih-preview-close"
+                    onClick={() => {
+                      setDeleteTarget(null);
+                      setManagementError("");
+                    }}
+                    disabled={managingDatasetId === deleteTarget.id}
+                    aria-label="Close delete confirmation"
+                  >
+                    ×
+                  </button>
+                </header>
+
+                <div className="ih-management-form">
+                  <p id="ih-delete-description">
+                    You are about to permanently delete{" "}
+                    <strong>{deleteTarget.name}</strong> and its stored file.
+                    This cannot be undone.
+                  </p>
+
+                  {managementError && (
+                    <p className="ih-feedback error" role="alert">
+                      {managementError}
+                    </p>
+                  )}
+
+                  <footer className="ih-management-actions">
+                    <button
+                      type="button"
+                      className="ih-secondary-button"
+                      onClick={() => {
+                        setDeleteTarget(null);
+                        setManagementError("");
+                      }}
+                      disabled={managingDatasetId === deleteTarget.id}
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="button"
+                      className="ih-primary-button ih-management-delete-button"
+                      onClick={() => void handleDeleteDataset()}
+                      disabled={managingDatasetId === deleteTarget.id}
+                    >
+                      {managingDatasetId === deleteTarget.id
+                        ? "Deleting..."
+                        : "Confirm delete"}
+                    </button>
+                  </footer>
+                </div>
+              </section>
+            </div>
+          )}
           <footer className="ih-footer">
             <span>InsightHub</span>
             <span>Data intelligence, simplified.</span>

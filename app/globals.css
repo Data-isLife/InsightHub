@@ -1622,3 +1622,67 @@ body,
     padding: 14px 17px;
   }
 }
+
+/* InsightHub dataset management dialogs */
+
+.ih-management-modal {
+  width: min(520px, 100%);
+  max-height: calc(100vh - 48px);
+}
+
+.ih-management-form {
+  display: grid;
+  gap: 18px;
+  padding: 22px 24px 24px;
+}
+
+.ih-management-form > p {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.ih-management-form > p strong {
+  font-weight: 700;
+}
+
+.ih-management-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.ih-management-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.ih-management-actions button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.ih-management-delete-button {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: white;
+}
+
+.ih-management-delete-button:hover {
+  opacity: 0.9;
+}
+
+@media (max-width: 650px) {
+  .ih-management-form {
+    padding: 18px 17px 20px;
+  }
+
+  .ih-management-actions {
+    gap: 8px;
+  }
+}
